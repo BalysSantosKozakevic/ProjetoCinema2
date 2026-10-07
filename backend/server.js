@@ -1,11 +1,13 @@
-require("dotenv").config();
 const express = require("express");
-const app=express();
+
+const app = express();
 
 app.use(express.json());
 
-const PORT=Number(process.env.PORT) || 3000;
+const filmesRoutes = require("./routes/filmesRoutes");
 
-app.get("/", (req, res) => {
+app.use("/filmes", filmesRoutes);
 
+app.listen(3000, () => {
+    console.log("Servidor rodando na porta 3000");
 });
