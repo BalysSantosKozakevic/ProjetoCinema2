@@ -72,54 +72,62 @@ class Cinema {
     senha = String(senha || '');
 
     if (!nome || nome.length < 2) throw Object.assign(new Error('Informe seu nome.'), { status: 400 });
-
     if (!/^\S+@\S+\.\S+$/.test(email)) throw Object.assign(new Error('E-mail inválido.'), { status: 400 });
-
     if (!senha || senha.length < 6) throw Object.assign(new Error('A senha deve ter pelo menos 6 caracteres.'), { status: 400 });
 
-    const [exists] = await pool.query('SELECT id_usuario FROM usuarios WHERE email=?', [email]); if (exists.length) throw Object.assign(new Error('Este e-mail já está cadastrado.'), { status: 409 });
+    const [exists] = await pool.query('SELECT id_usuario FROM usuarios WHERE email=?', [email]);
+    if (exists.length) throw Object.assign(new Error('Este e-mail já está cadastrado.'), { status: 409 });
 
-    const hash = await bcrypt.hash(senha, 12), token = crypto.randomBytes(32).toString('hex'); await pool.query('INSERT INTO usuarios(nome,email,senha_hash,token_verificacao,token_expira) VALUES(?,?,?,?,DATE_ADD(NOW(),INTERVAL 24 HOUR))', [nome, email, hash, token]);
+    const hash = await bcrypt.hash(senha, 12);
+    const [result] = await pool.query('INSERT INTO usuarios(nome,email,senha) VALUES(?,?,?)', [nome, email, hash]);
+    const usuarioId = result.insertId;
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-    const url = `${APP}/?verificar=${token}`; await sendMail(email, 'Confirme sua conta no Cinemasso', `<h2>Bem-vindo ao Cinemasso, ${nome}!</h2><p>Confirme sua conta clicando no botão:</p><p><a href="${url}">Confirmar minha conta</a></p><p>O link expira em 24 horas.</p>`);
+    await pool.query(
+      'INSERT INTO cinemasso_verificacoes_email(usuario_id,token_hash,expira_em,confirmado) VALUES(?,?,DATE_ADD(NOW(),INTERVAL 24 HOUR),0)',
+      [usuarioId, tokenHash]
+    );
 
-    return { mensagem: 'Conta criada. Verifique seu e-mail para ativar o acesso.', email, devConfirmUrl: process.env.SMTP_HOST ? undefined : url }
+    const url = `${APP}/?verificar=${token}`;
+    await sendMail(email, 'Confirme sua conta no Cinemasso', `<h2>Bem-vindo ao Cinemasso, ${nome}!</h2><p>Confirme sua conta clicando no botão:</p><p><a href="${url}">Confirmar minha conta</a></p><p>O link expira em 24 horas.</p>`);
+
+    return { mensagem: 'Conta criada. Verifique seu e-mail para ativar o acesso.', email, devConfirmUrl: process.env.SMTP_HOST ? undefined : url };
   }
 
   async verificar(token) {
-    const [r] = await pool.query('SELECT id_usuario AS id,nome,email FROM usuarios WHERE token_verificacao=? AND token_expira>NOW()', [token]);
-
+    const tokenHash = crypto.createHash('sha256').update(String(token || '')).digest('hex');
+    const [r] = await pool.query(
+      'SELECT v.usuario_id AS id,u.nome,u.email FROM cinemasso_verificacoes_email v JOIN usuarios u ON u.id_usuario=v.usuario_id WHERE v.token_hash=? AND v.expira_em>NOW() AND v.confirmado=0',
+      [tokenHash]
+    );
     if (!r.length) throw Object.assign(new Error('Link de confirmação inválido ou expirado.'), { status: 400 });
-
-    await pool.query('UPDATE usuarios SET email_verificado=1,token_verificacao=NULL,token_expira=NULL WHERE id_usuario=?', [r[0].id]);
-
-    return r[0]
+    await pool.query('UPDATE cinemasso_verificacoes_email SET confirmado=1 WHERE token_hash=?', [tokenHash]);
+    return r[0];
   }
 
   async login({ email, senha } = {}) {
     email = String(email || '').trim().toLowerCase();
     senha = String(senha || '');
-    const [r] = await pool.query('SELECT * FROM usuarios WHERE email=?', [email.trim().toLowerCase()]);
+    const [r] = await pool.query('SELECT id_usuario,nome,email,senha FROM usuarios WHERE email=?', [email]);
 
-    if (!r.length || !(await bcrypt.compare(senha, r[0].senha_hash))) throw Object.assign(new Error('E-mail ou senha incorretos.'), { status: 401 });
+    if (!r.length || !(await bcrypt.compare(senha, r[0].senha))) throw Object.assign(new Error('E-mail ou senha incorretos.'), { status: 401 });
 
-    if (!r[0].email_verificado) throw Object.assign(new Error('Confirme seu e-mail antes de entrar.'), { status: 403 });
+    const [v] = await pool.query('SELECT confirmado FROM cinemasso_verificacoes_email WHERE usuario_id=? ORDER BY id DESC LIMIT 1', [r[0].id_usuario]);
+    if (!v.length || !v[0].confirmado) throw Object.assign(new Error('Confirme seu e-mail antes de entrar.'), { status: 403 });
 
-    const raw = crypto.randomBytes(32).toString('hex'), hash = crypto.createHash('sha256').update(raw).digest('hex');
+    const raw = crypto.randomBytes(32).toString('hex');
+    const hash = crypto.createHash('sha256').update(raw).digest('hex');
+    await pool.query('INSERT INTO cinemasso_sessoes_tokens(usuario_id,token_hash,expira_em) VALUES(?,?,DATE_ADD(NOW(),INTERVAL 30 DAY))', [r[0].id_usuario, hash]);
 
-    await pool.query('INSERT INTO sessoes_tokens(usuario_id,token_hash,expira_em) VALUES(?,?,DATE_ADD(NOW(),INTERVAL 30 DAY))', [r[0].id_usuario, hash]);
-
-    return { token: raw, usuario: { id: r[0].id_usuario, nome: r[0].nome, email: r[0].email } }
+    return { token: raw, usuario: { id: r[0].id_usuario, nome: r[0].nome, email: r[0].email } };
   }
 
   async usuario(token) {
     if (!token) return null;
-
     const h = crypto.createHash('sha256').update(token).digest('hex');
-
-    const [r] = await pool.query('SELECT u.id_usuario AS id,u.nome,u.email FROM sessoes_tokens t JOIN usuarios u ON u.id_usuario=t.usuario_id WHERE t.token_hash=? AND t.expira_em>NOW()', [h]);
-
-    return r[0] || null
+    const [r] = await pool.query('SELECT u.id_usuario AS id,u.nome,u.email FROM cinemasso_sessoes_tokens t JOIN usuarios u ON u.id_usuario=t.usuario_id WHERE t.token_hash=? AND t.expira_em>NOW()', [h]);
+    return r[0] || null;
   }
 
   async pedidos(usuarioId) {
