@@ -944,3 +944,35 @@ footer b {
     gap: 7px
   }
 }
+/* Pôsteres reais fornecidos para o catálogo Cinemasso */
+.movie-poster.has-poster {
+  background: #101218;
+}
+
+.movie-poster.has-poster > img {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.movie-poster.has-poster:after {
+  z-index: 0;
+  background: linear-gradient(transparent 35%, rgba(0,0,0,.9));
+}
+
+.detail-poster.has-poster {
+  position: relative;
+  overflow: hidden;
+  background: #101218;
+}
+
+.detail-poster.has-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
