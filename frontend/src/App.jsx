@@ -26,10 +26,11 @@ const posterByTitle = {
   'ray gunn': posterRayGunn,
   'digger': posterDigger,
   'o iluminado': posterIluminado,
-  'a-noiva-cadáver': posterNoivaCadaver,
+  'a noiva cadaver': posterNoivaCadaver,
+  'a-noiva-cadaver': posterNoivaCadaver,
 };
-const normalizeTitle = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-const getPoster = movie => movie?.poster || movie?.poster_url || posterByTitle[normalizeTitle(movie?.titulo)] || '';
+const normalizeTitle = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[-–—]+/g, ' ').replace(/\s+/g, ' ').trim();
+const getPoster = movie => posterByTitle[normalizeTitle(movie?.titulo)] || movie?.poster || movie?.poster_url || '';
 const shops = ['UCI Plaza Sul', 'UCI Metrópole', 'UCI Jardim Sul'];
 const ticketLabels = { inteira: 'Inteira', meia: 'Meia-entrada', plano: 'Plano Cinemasso' };
 const calc = (base, tipo, formato) => { let p = Number(base || 0); if (tipo === 'meia') p *= .5; if (tipo === 'plano') p *= .8; if (formato === '3D') p += 5; return +p.toFixed(2) };
