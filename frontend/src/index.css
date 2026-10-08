@@ -1,0 +1,16 @@
+* {
+    box-sizing: border-box
+}
+
+html {
+    scroll-behavior: smooth
+}
+
+body {
+    margin: 0
+}
+
+::selection {
+    background: #f3b54a;
+    color: #17130b
+}

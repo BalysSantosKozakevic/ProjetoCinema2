@@ -1,122 +1,62 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
-
+import { useEffect, useMemo, useState } from 'react'; import './App.css';
+const API = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/$/, '');
+const money = n => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(n || 0));
+const dateBR = d => new Date(`${d}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+const time = x => String(x || '').slice(0, 5);
+const fallback = [
+  { id: 1, titulo: 'Michael', genero: 'Biografia / Drama', duracao: 127, classificacao: '12', nota: 7.4, sinopse: 'A trajetória inicial de Michael Jackson, desde a descoberta de seu talento até a ascensão como um dos maiores artistas do mundo.', ano: 2026, destaque: 1 },
+  { id: 2, titulo: 'Super Mario Galaxy: O Filme', genero: 'Animação / Aventura', duracao: 98, classificacao: 'Livre', nota: 6.3, sinopse: 'Mario e seus amigos enfrentam uma nova ameaça em uma aventura que leva o Reino dos Cogumelos para o espaço.', ano: 2026, destaque: 1 },
+  { id: 3, titulo: 'Verity', genero: 'Suspense / Drama', duracao: 114, classificacao: '18', nota: 0, sinopse: 'Uma escritora é contratada para terminar o livro de uma autora best-seller e descobre segredos perturbadores dentro da casa da família.', ano: 2026, destaque: 1 },
+  { id: 4, titulo: 'Minha Melhor Amiga', genero: 'Comédia / Drama', duracao: 105, classificacao: '12', nota: 0, sinopse: 'Duas melhores amigas embarcam em uma viagem que transforma a maneira como enxergam a própria vida.', ano: 2026, destaque: 1 },
+  { id: 5, titulo: 'Ray Gunn', genero: 'Animação / Ação', duracao: 102, classificacao: '12', nota: 0, sinopse: 'Uma aventura animada de ficção e ação em um universo retrofuturista.', ano: 2026, destaque: 1 },
+  { id: 6, titulo: 'Digger', genero: 'Ação / Drama', duracao: 118, classificacao: '14', nota: 0, sinopse: 'Um homem retorna ao passado e precisa enfrentar escolhas que mudaram sua vida.', ano: 2026 },
+  { id: 7, titulo: 'O Iluminado', genero: 'Terror', duracao: 146, classificacao: '16', nota: 8.4, sinopse: 'Um escritor aceita cuidar de um hotel isolado durante o inverno, onde forças sobrenaturais começam a afetar sua família.', ano: 1980 },
+  { id: 8, titulo: 'A Noiva-Cadáver', genero: 'Animação / Fantasia', duracao: 77, classificacao: '10', nota: 7.9, sinopse: 'Um noivo acidentalmente se casa com uma noiva do mundo dos mortos.', ano: 2005 }
+];
+const shops = ['UCI Plaza Sul', 'UCI Metrópole', 'UCI Jardim Sul'];
+const ticketLabels = { inteira: 'Inteira', meia: 'Meia-entrada', plano: 'Plano Cinemasso' };
+const calc = (base, tipo, formato) => { let p = Number(base || 0); if (tipo === 'meia') p *= .5; if (tipo === 'plano') p *= .8; if (formato === '3D') p += 5; return +p.toFixed(2) };
+function seatsFallback() { return Array.from({ length: 48 }, (_, i) => ({ id: i + 1, codigo: `${String.fromCharCode(65 + Math.floor(i / 8))}${i % 8 + 1}`, status: [5, 6, 20, 21, 34].includes(i + 1) ? 'ocupado' : 'livre' })) }
 function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+  const [movies, setMovies] = useState(fallback), [genres, setGenres] = useState([]), [search, setSearch] = useState(''), [genre, setGenre] = useState('Todos');
+  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('cinemasso_user') || 'null')), [token, setToken] = useState(() => localStorage.getItem('cinemasso_token') || '');
+  const [modal, setModal] = useState(null), [notice, setNotice] = useState(''), [selected, setSelected] = useState(null), [sessions, setSessions] = useState([]), [session, setSession] = useState(null), [seats, setSeats] = useState([]), [chosen, setChosen] = useState([]), [date, setDate] = useState(''), [shop, setShop] = useState('Todos'), [ticketType, setTicketType] = useState('inteira'), [combo, setCombo] = useState(0), [step, setStep] = useState('home'), [loading, setLoading] = useState(false), [orders, setOrders] = useState([]);
+  const [form, setForm] = useState({ nome: '', email: '', senha: '', senha2: '' });
+  const api = async (path, opt = {}) => { const r = await fetch(API + path, { ...opt, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } }); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.erro || 'Não foi possível concluir.'); return d };
+  useEffect(() => { api('/filmes').then(setMovies).catch(() => { }); api('/generos').then(setGenres).catch(() => { }); if (token) api('/me').catch(() => logout()) }, []);
+  useEffect(() => { const q = new URLSearchParams(location.search); const t = q.get('verificar'); if (t) api('/contas/verificar', { method: 'POST', body: JSON.stringify({ token: t }) }).then(() => { setNotice('Conta confirmada! Agora você já pode entrar.'); setModal('login'); history.replaceState({}, '', location.pathname) }).catch(e => setNotice(e.message)) }, []);
+  const visible = useMemo(() => movies.filter(m => (genre === 'Todos' || m.genero.includes(genre)) && m.titulo.toLowerCase().includes(search.toLowerCase())), [movies, genre, search]);
+  const setPage = p => { setStep(p); history.pushState({ step: p }, '', `#${p}`); window.scrollTo({ top: 0, behavior: 'smooth' }) };
+  useEffect(() => { const pop = () => setStep(history.state?.step || 'home'); addEventListener('popstate', pop); return () => removeEventListener('popstate', pop) }, []);
+  const back = () => { if (step === 'sessions') setPage('home'); else if (step === 'seats') setPage('sessions'); else if (step === 'checkout') setPage('seats'); else if (step === 'account') setPage('home'); else setPage('home') };
+  const openMovie = async m => { setSelected(m); setChosen([]); setDate(''); setShop('Todos'); setPage('details'); try { const s = await api(`/filmes/${m.id}/sessoes`); setSessions(s) } catch { setSessions([]) } };
+  const filteredSessions = sessions.filter(s => (!date || s.data_sessao === date) && (shop === 'Todos' || s.shopping === shop));
+  const openSessions = () => setPage('sessions');
+  const openSeats = async s => { setSession(s); setChosen([]); setLoading(true); try { setSeats(await api(`/sessoes/${s.id}/assentos`)) } catch { setSeats(seatsFallback()) } finally { setLoading(false) } setPage('seats') };
+  const toggle = id => { const s = seats.find(x => x.id === id); if (!s || s.status !== 'livre') return; setChosen(c => c.includes(id) ? c.filter(x => x !== id) : [...c, id]) };
+  const price = calc(session?.preco_base, ticketType, session?.formato), ticketTotal = price * chosen.length, comboTotal = combo * 24.9, total = ticketTotal + comboTotal;
+  const signup = async e => { e.preventDefault(); if (form.senha !== form.senha2) return setNotice('As senhas não coincidem.'); setLoading(true); try { const d = await api('/contas', { method: 'POST', body: JSON.stringify({ nome: form.nome, email: form.email, senha: form.senha }) }); setNotice(d.devConfirmUrl ? `Conta criada. Como o SMTP ainda não está configurado, use este link de confirmação no modo local: ${d.devConfirmUrl}` : d.mensagem); setModal('login'); setForm({ nome: '', email: '', senha: '', senha2: '' }) } catch (e) { setNotice(e.message) } finally { setLoading(false) } };
+  const login = async e => { e.preventDefault(); setLoading(true); try { const d = await api('/login', { method: 'POST', body: JSON.stringify({ email: form.email, senha: form.senha }) }); localStorage.setItem('cinemasso_token', d.token); localStorage.setItem('cinemasso_user', JSON.stringify(d.usuario)); setToken(d.token); setUser(d.usuario); setModal(null); setNotice('Login realizado.'); setForm({ nome: '', email: '', senha: '', senha2: '' }) } catch (e) { setNotice(e.message) } finally { setLoading(false) } };
+  const logout = () => { localStorage.removeItem('cinemasso_token'); localStorage.removeItem('cinemasso_user'); setToken(''); setUser(null); setOrders([]); setNotice('Você saiu da conta.') };
+  const loadOrders = async () => { if (!user) return setModal('login'); try { setOrders(await api('/me/pedidos')); setPage('account') } catch (e) { setNotice(e.message) } };
+  const buy = async () => { if (!user) return setModal('login'); setLoading(true); try { await api('/compras', { method: 'POST', body: JSON.stringify({ sessaoId: session.id, tipo: ticketType, assentoIds: chosen, comboQuantidade: combo }) }); setNotice('Compra confirmada! O comprovante foi enviado para seu e-mail.'); await loadOrders(); setPage('account'); setChosen([]); setCombo(0) } catch (e) { setNotice(e.message) } finally { setLoading(false) } };
+  const cancel = async id => { if (!confirm('Cancelar este ingresso?')) return; try { setNotice((await api(`/pedidos/${id}/cancelar`, { method: 'POST' })).mensagem); setOrders(await api('/me/pedidos')) } catch (e) { setNotice(e.message) } };
+  const refund = async id => { try { setNotice((await api(`/pedidos/${id}/reembolso`, { method: 'POST' })).mensagem); setOrders(await api('/me/pedidos')) } catch (e) { setNotice(e.message) } };
+  const genresAll = [...new Set([...genres, ...fallback.flatMap(x => x.genero.split(' / '))])];
+  return <div className="app">
+    <header><div className="wrap nav"><button className="logo" onClick={() => setPage('home')}>🎬 <span>Cine</span>masso</button><nav><button onClick={() => setPage('home')}>Início</button><button onClick={() => document.getElementById('catalogo')?.scrollIntoView()}>Filmes</button><button onClick={loadOrders}>Meus ingressos</button></nav><div className="search"><span>⌕</span><input value={search} onChange={e => { setSearch(e.target.value); setPage('home') }} placeholder="Pesquisar filme ou gênero..." /></div>{user ? <button className="account" onClick={loadOrders}>👤 {user.nome.split(' ')[0]}</button> : <button className="login" onClick={() => { setNotice(''); setModal('login') }}>Entrar</button>}</div></header>
+    {notice && <div className="notice"><div>{notice}</div><button onClick={() => setNotice('')}>×</button></div>}
+    <main>
+      {step === 'home' && <><section className="hero wrap"><div><span className="eyebrow">CINEMASSO · PROGRAMAÇÃO ATUALIZADA</span><h1>Seu filme.<br /><em>Seu lugar.</em></h1><p>Escolha o cinema, o dia, o horário e o assento. Se quiser, leve também seu combo de pipoca e refrigerante.</p><button className="primary" onClick={() => document.getElementById('catalogo')?.scrollIntoView()}>Ver programação →</button></div><div className="hero-art">🎬<b>VIVA<br />O CINEMA</b><small>Filmes, sessões e experiências.</small></div></section>
+        <section className="wrap" id="catalogo"><div className="heading"><div><span className="eyebrow">EM CARTAZ</span><h2>Filmes no Cinemasso</h2></div><div className="genres"><button className={genre === 'Todos' ? 'sel' : ''} onClick={() => setGenre('Todos')}>Todos</button>{genresAll.map(g => <button className={genre === g ? 'sel' : ''} key={g} onClick={() => setGenre(g)}>{g}</button>)}</div></div><div className="cards">{visible.map(m => <article className="movie" key={m.id} onClick={() => openMovie(m)}><div className={`movie-poster p${m.id % 6}`}><span className="rating">★ {m.nota ? m.nota : '—'}</span><span className="age">{m.classificacao}</span><div><small>{m.genero}</small><h3>{m.titulo}</h3></div></div><div className="movie-info"><b>{m.titulo}</b><span>{m.duracao} min · {m.ano}</span></div></article>)}</div></section></>}
+      {step === 'details' && <section className="wrap page"><button className="back" onClick={back}>← Voltar</button><div className="detail"><div className={`detail-poster p${selected?.id % 6}`}>🎬</div><div><span className="eyebrow">{selected?.genero}</span><h2>{selected?.titulo}</h2><div className="facts"><span>🔞 {selected?.classificacao}</span><span>⏱ {selected?.duracao} min</span><span>⭐ {selected?.nota ? `${selected.nota}/10` : 'Em avaliação'}</span></div><p>{selected?.sinopse}</p><button className="primary" onClick={openSessions}>Escolher sessão →</button></div></div></section>}
+      {step === 'sessions' && <section className="wrap page"><button className="back" onClick={back}>← Voltar para o filme</button><div className="heading"><div><span className="eyebrow">SESSÕES</span><h2>{selected?.titulo}</h2></div></div><div className="selectors"><label>Shopping<select value={shop} onChange={e => setShop(e.target.value)}><option>Todos</option>{shops.map(x => <option key={x}>{x}</option>)}</select></label><label>Dia<select value={date} onChange={e => setDate(e.target.value)}><option value="">Todos os dias</option>{[...new Set(sessions.map(s => s.data_sessao))].map(d => <option key={d} value={d}>{dateBR(d)}</option>)}</select></label></div><div className="session-grid">{filteredSessions.length ? filteredSessions.map(s => <button className="session" key={s.id} onClick={() => openSeats(s)}><small>{dateBR(s.data_sessao)} · {s.shopping}</small><strong>{time(s.horario)}</strong><span>{s.sala} · {s.formato}</span><b>A partir de {money(s.preco_base)}</b></button>) : <div className="empty">Nenhuma sessão para estes filtros.</div>}</div><p className="price-note">Faixas de referência baseadas em tabelas atuais de redes brasileiras e sujeitas a alterações por shopping, dia, formato e promoção. </p></section>}
+      {step === 'seats' && <section className="wrap page"><button className="back" onClick={back}>← Voltar para sessões</button><div className="heading"><div><span className="eyebrow">ASSENTOS · {session?.shopping}</span><h2>Escolha seu lugar</h2><p>{dateBR(session?.data_sessao)} · {time(session?.horario)} · {session?.sala}</p></div></div><div className="checkout-grid"><div><div className="screen">TELA</div><div className="seat-grid">{loading ? <div>Carregando...</div> : seats.map(s => <button key={s.id} disabled={s.status !== 'livre'} className={`seat ${s.status === 'ocupado' ? 'busy' : ''} ${chosen.includes(s.id) ? 'chosen' : ''}`} onClick={() => toggle(s.id)}>{s.codigo}</button>)}</div><div className="legend">Livre · <b>Selecionado</b> · Ocupado</div></div><aside className="panel"><h3>Seu ingresso</h3><label>Tipo<select value={ticketType} onChange={e => setTicketType(e.target.value)}>{Object.entries(ticketLabels).map(([v, l]) => <option key={v} value={v}>{l} · {money(calc(session?.preco_base, v, session?.formato))}</option>)}</select></label><div className="combo"><div><b>🍿 Combo Pipoca + Refrigerante</b><small>R$ 24,90 cada</small></div><div className="stepper"><button onClick={() => setCombo(Math.max(0, combo - 1))}>−</button><b>{combo}</b><button onClick={() => setCombo(combo + 1)}>+</button></div></div><div className="total"><span>{chosen.length} ingresso(s)</span><b>{money(ticketTotal)}</b></div><div className="total"><span>Combo</span><b>{money(comboTotal)}</b></div><div className="total grand"><span>Total</span><b>{money(total)}</b></div><button className="primary wide" disabled={!chosen.length} onClick={() => { if (!user) setModal('login'); else setPage('checkout') }}>Continuar →</button></aside></div></section>}
+      {step === 'checkout' && <section className="wrap page"><button className="back" onClick={back}>← Voltar para assentos</button><div className="checkout-box"><span className="eyebrow">REVISÃO</span><h2>Confirme sua compra</h2><div className="review"><span>Filme</span><b>{selected?.titulo}</b><span>Local</span><b>{session?.shopping} · {dateBR(session?.data_sessao)} · {time(session?.horario)}</b><span>Assentos</span><b>{chosen.map(id => seats.find(s => s.id === id)?.codigo).join(', ')}</b><span>Ingresso</span><b>{ticketLabels[ticketType]}</b><span>Combo</span><b>{combo ? `${combo} × R$ 24,90` : 'Não'}</b><strong>Total</strong><strong>{money(total)}</strong></div><p>O pagamento desta versão é simulado. Em uma implantação real, conecte um gateway como Mercado Pago, Stripe ou PagSeguro antes de cobrar o cliente.</p><button className="primary wide" disabled={loading} onClick={buy}>{loading ? 'Confirmando...' : `Confirmar compra · ${money(total)}`}</button></div></section>}
+      {step === 'account' && <section className="wrap page"><div className="account-head"><div><span className="eyebrow">MINHA CONTA</span><h2>Olá, {user?.nome.split(' ')[0]} 👋</h2></div><button className="outline" onClick={logout}>Sair</button></div><div className="orders">{orders.length ? orders.map(o => <article className="order" key={o.id}><div><span className={`status ${o.status}`}>{o.status.replaceAll('_', ' ')}</span><h3>{o.titulo}</h3><p>{o.shopping} · {dateBR(o.data_sessao)} · {time(o.horario)} · {o.formato}</p><p>Assentos: <b>{o.assentos?.join(', ')}</b> · {ticketLabels[o.tipo_ingresso]}</p>{o.combo_quantidade > 0 && <p>🍿 {o.combo_quantidade} combo(s)</p>}</div><div className="order-right"><strong>{money(o.total)}</strong>{o.status === 'confirmado' && <button onClick={() => cancel(o.id)}>Cancelar ingresso</button>}{o.status === 'cancelado' && <button onClick={() => refund(o.id)}>Pedir reembolso</button>}{o.status === 'reembolso_solicitado' && <small>Reembolso solicitado</small>}</div></article>) : <div className="empty">Você ainda não possui compras.</div>}</div></section>}
+    </main>
+    <footer><div className="wrap"><b>🎬 Cinemasso</b><span>Seu cinema, seu lugar.</span><span>Conta segura · Ingresso digital · Compra de combo</span></div></footer>
+    {modal && <div className="modal-bg" onMouseDown={e => e.target === e.currentTarget && setModal(null)}><div className="modal"><button className="close" onClick={() => setModal(null)}>×</button>{modal === 'login' ? <><span className="eyebrow">BEM-VINDO DE VOLTA</span><h2>Entrar no Cinemasso</h2><form onSubmit={login}><input required type="email" placeholder="Seu e-mail" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /><input required type="password" placeholder="Sua senha" value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} /><button className="primary wide">Entrar</button></form><p>Não tem conta? <button className="link" onClick={() => setModal('signup')}>Criar conta</button></p></> : <><span className="eyebrow">NOVA CONTA</span><h2>Crie sua conta</h2><p>Você receberá um e-mail para confirmar o cadastro.</p><form onSubmit={signup}><input required placeholder="Nome completo" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} /><input required type="email" placeholder="E-mail" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /><input required minLength="6" type="password" placeholder="Senha (mín. 6 caracteres)" value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} /><input required minLength="6" type="password" placeholder="Repita a senha" value={form.senha2} onChange={e => setForm({ ...form, senha2: e.target.value })} /><button className="primary wide" disabled={loading}>{loading ? 'Criando...' : 'Criar conta'}</button></form><p>Já possui conta? <button className="link" onClick={() => setModal('login')}>Entrar</button></p></>}</div></div>}
+  </div>
 }
-
-export default App
+export default App;
