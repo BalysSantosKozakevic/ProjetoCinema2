@@ -68,14 +68,14 @@ async function getSchema() {
     },
     sessoes: sessoes && {
       table: sessoes,
-      id: findColumn(sessoes, 'id_sessao', 'id'),
-      filmeId: findColumn(sessoes, 'id_filme', 'filme_id'),
-      data: findColumn(sessoes, 'data_sessao', 'data', 'data_hora'),
-      horario: findColumn(sessoes, 'horario', 'hora'),
-      shopping: findColumn(sessoes, 'shopping', 'cinema', 'local'),
-      sala: findColumn(sessoes, 'sala', 'sala_numero'),
-      formato: findColumn(sessoes, 'formato', 'tipo'),
-      preco: findColumn(sessoes, 'preco_base', 'preco', 'valor')
+      id: findColumn(sessoes, 'id_sessao', 'id_sessao_cinema', 'sessao_id', 'id'),
+      filmeId: findColumn(sessoes, 'id_filme', 'filme_id', 'id_filmes', 'filme'),
+      data: findColumn(sessoes, 'data_sessao', 'data', 'data_hora', 'data_inicio', 'dia'),
+      horario: findColumn(sessoes, 'horario', 'hora', 'hora_sessao', 'horario_sessao'),
+      shopping: findColumn(sessoes, 'shopping', 'cinema', 'local', 'shopping_cinema'),
+      sala: findColumn(sessoes, 'sala', 'sala_numero', 'numero_sala'),
+      formato: findColumn(sessoes, 'formato', 'tipo', 'tipo_sessao'),
+      preco: findColumn(sessoes, 'preco_base', 'preco', 'valor', 'valor_ingresso')
     },
     assentos: assentos && {
       table: assentos,
@@ -241,13 +241,11 @@ class Cinema {
       w.push(`s.${quoteId(x.shopping)}=?`);
       p.push(shopping);
     }
-    if (x.data) w.push(`DATE(s.${quoteId(x.data)}) >= CURDATE()`);
-
     const selectMovie = f?.titulo
       ? `, f.${quoteId(f.titulo)} AS titulo${f.classificacao ? `, f.${quoteId(f.classificacao)} AS classificacao` : ''}${f.nota ? `, f.${quoteId(f.nota)} AS nota` : ''}`
       : '';
 
-    const join = f?.id ? ` JOIN ${quoteId(f.table)} f ON f.${quoteId(f.id)}=s.${quoteId(x.filmeId)}` : '';
+    const join = f?.id ? ` LEFT JOIN ${quoteId(f.table)} f ON f.${quoteId(f.id)}=s.${quoteId(x.filmeId)}` : '';
     const [rows] = await pool.query(
       `SELECT s.*${selectMovie}
          FROM ${quoteId(x.table)} s${join}
@@ -264,14 +262,17 @@ class Cinema {
         rawDate = iso.slice(0, 10);
         if (!x.horario) rawTime = iso.slice(11, 19);
       } else {
-        const text = String(rawDate || '');
-        if (text.includes('T') && !x.horario) {
-          rawTime = text.slice(11, 19);
+        const text = String(rawDate || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}[T ]/.test(text)) {
+          if (!x.horario) rawTime = text.slice(11, 19);
           rawDate = text.slice(0, 10);
-        } else if (text.includes(' ') && !x.horario) {
-          rawTime = text.slice(11, 19);
-          rawDate = text.slice(0, 10);
-        } else if (text.length >= 10) {
+        } else if (/^\d{2}\/\d{2}\/\d{4}/.test(text)) {
+          const [d, m, y] = text.slice(0, 10).split('/');
+          rawDate = `${y}-${m}-${d}`;
+          if (!x.horario) rawTime = text.slice(11, 19);
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+          rawDate = text;
+        } else {
           rawDate = text.slice(0, 10);
         }
       }

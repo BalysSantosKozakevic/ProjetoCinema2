@@ -26,8 +26,7 @@ const posterByTitle = {
   'ray gunn': posterRayGunn,
   'digger': posterDigger,
   'o iluminado': posterIluminado,
-  'a noiva-cadáver': posterNoivaCadaver,
-  'a noiva-cadaver': posterNoivaCadaver,
+  'a-noiva-cadáver': posterNoivaCadaver,
 };
 const normalizeTitle = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 const getPoster = movie => movie?.poster || movie?.poster_url || posterByTitle[normalizeTitle(movie?.titulo)] || '';
