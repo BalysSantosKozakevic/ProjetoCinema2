@@ -66,10 +66,12 @@ class Cinema {
     return r
   }
 
-  async criarConta({ nome, email, senha }) {
-    email = email.trim().toLowerCase();
+  async criarConta({ nome, email, senha } = {}) {
+    nome = String(nome || '').trim();
+    email = String(email || '').trim().toLowerCase();
+    senha = String(senha || '');
 
-    if (!nome || nome.trim().length < 2) throw Object.assign(new Error('Informe seu nome.'), { status: 400 });
+    if (!nome || nome.length < 2) throw Object.assign(new Error('Informe seu nome.'), { status: 400 });
 
     if (!/^\S+@\S+\.\S+$/.test(email)) throw Object.assign(new Error('E-mail inválido.'), { status: 400 });
 
@@ -77,9 +79,9 @@ class Cinema {
 
     const [exists] = await pool.query('SELECT id FROM usuarios WHERE email=?', [email]); if (exists.length) throw Object.assign(new Error('Este e-mail já está cadastrado.'), { status: 409 });
 
-    const hash = await bcrypt.hash(senha, 12), token = crypto.randomBytes(32).toString('hex'); await pool.query('INSERT INTO usuarios(nome,email,senha_hash,token_verificacao,token_expira) VALUES(?,?,?,?,DATE_ADD(NOW(),INTERVAL 24 HOUR))', [nome.trim(), email, hash, token]);
+    const hash = await bcrypt.hash(senha, 12), token = crypto.randomBytes(32).toString('hex'); await pool.query('INSERT INTO usuarios(nome,email,senha_hash,token_verificacao,token_expira) VALUES(?,?,?,?,DATE_ADD(NOW(),INTERVAL 24 HOUR))', [nome, email, hash, token]);
 
-    const url = `${APP}/?verificar=${token}`; await sendMail(email, 'Confirme sua conta no Cinemasso', `<h2>Bem-vindo ao Cinemasso, ${nome.trim()}!</h2><p>Confirme sua conta clicando no botão:</p><p><a href="${url}">Confirmar minha conta</a></p><p>O link expira em 24 horas.</p>`);
+    const url = `${APP}/?verificar=${token}`; await sendMail(email, 'Confirme sua conta no Cinemasso', `<h2>Bem-vindo ao Cinemasso, ${nome}!</h2><p>Confirme sua conta clicando no botão:</p><p><a href="${url}">Confirmar minha conta</a></p><p>O link expira em 24 horas.</p>`);
 
     return { mensagem: 'Conta criada. Verifique seu e-mail para ativar o acesso.', email, devConfirmUrl: process.env.SMTP_HOST ? undefined : url }
   }
@@ -94,7 +96,9 @@ class Cinema {
     return r[0]
   }
 
-  async login({ email, senha }) {
+  async login({ email, senha } = {}) {
+    email = String(email || '').trim().toLowerCase();
+    senha = String(senha || '');
     const [r] = await pool.query('SELECT * FROM usuarios WHERE email=?', [email.trim().toLowerCase()]);
 
     if (!r.length || !(await bcrypt.compare(senha, r[0].senha_hash))) throw Object.assign(new Error('E-mail ou senha incorretos.'), { status: 401 });
@@ -124,7 +128,12 @@ class Cinema {
     for (const x of r) { const [a] = await pool.query('SELECT a.codigo FROM pedido_assentos pa JOIN assentos a ON a.id=pa.assento_id WHERE pa.pedido_id=? ORDER BY a.codigo', [x.id]); x.assentos = a.map(v => v.codigo) } return r
   }
   price(base, tipo, formato) { let v = money(base); if (tipo === 'meia') v *= .5; if (tipo === 'plano') v *= .8; if (formato === '3D') v += 5; return Number(v.toFixed(2)) }
-  async comprar({ usuarioId, sessaoId, tipo, assentoIds, comboQuantidade = 0 }) { const conn = await pool.getConnection(); try { await conn.beginTransaction(); const [s] = await conn.query('SELECT s.*,f.titulo FROM sessoes s JOIN filmes f ON f.id=s.filme_id WHERE s.id=? FOR UPDATE', [sessaoId]); if (!s.length) throw Object.assign(new Error('Sessão não encontrada.'), { status: 404 }); const ids = [...new Set(assentoIds.map(Number).filter(Number.isInteger))]; const [a] = await conn.query(`SELECT id,status FROM assentos WHERE sessao_id=? AND id IN (${ids.map(() => '?').join(',')}) FOR UPDATE`, [sessaoId, ...ids]); if (a.length !== ids.length || a.some(x => x.status !== 'livre')) throw Object.assign(new Error('Um ou mais assentos não estão disponíveis.'), { status: 409 }); const [u] = await conn.query('SELECT id,nome,email FROM usuarios WHERE id=?', [usuarioId]); if (!u.length) throw Object.assign(new Error('Usuário não encontrado.'), { status: 401 }); const preco = this.price(s[0].preco_base, tipo, s[0].formato), ing = preco * ids.length, combo = Math.max(0, Number(comboQuantidade) || 0) * 24.9, total = Number((ing + combo).toFixed(2)); const [p] = await conn.query('INSERT INTO pedidos(usuario_id,sessao_id,shopping,tipo_ingresso,preco_ingresso,subtotal_ingressos,subtotal_combo,total,combo_nome,combo_quantidade,cliente_nome,cliente_email) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', [usuarioId, s[0].id, s[0].shopping, tipo, preco, ing, combo, total, combo ? 'Combo Pipoca + Refrigerante' : '', comboQuantidade, u[0].nome, u[0].email]); await conn.query(`INSERT INTO pedido_assentos(pedido_id,assento_id) VALUES ${ids.map(() => '(?,?)').join(',')}`, ids.flatMap(id => [p.insertId, id])); await conn.query(`UPDATE assentos SET status='ocupado' WHERE id IN (${ids.map(() => '?').join(',')})`, ids); await conn.commit(); await sendMail(u[0].email, 'Seu ingresso Cinemasso está confirmado', `<h2>Compra confirmada!</h2><p>Pedido #${p.insertId} — ${s[0].titulo}</p><p>${s[0].shopping} · ${new Date(s[0].data_sessao).toLocaleDateString('pt-BR')} às ${String(s[0].horario).slice(0, 5)}</p><p>Total: R$ ${total.toFixed(2).replace('.', ',')}</p>`); return { pedidoId: p.insertId, total, shopping: s[0].shopping, filme: s[0].titulo, assentos: ids } } catch (e) { await conn.rollback(); throw e } finally { conn.release() } }
+  async comprar({ usuarioId, sessaoId, tipo, assentoIds, comboQuantidade = 0 }) {
+    const idsInput = Array.isArray(assentoIds) ? assentoIds : [];
+    const ids = [...new Set(idsInput.map(Number).filter(Number.isInteger))];
+    if (!ids.length) throw Object.assign(new Error('Selecione pelo menos um assento.'), { status: 400 });
+    const conn = await pool.getConnection(); try { await conn.beginTransaction(); const [s] = await conn.query('SELECT s.*,f.titulo FROM sessoes s JOIN filmes f ON f.id=s.filme_id WHERE s.id=? FOR UPDATE', [sessaoId]); if (!s.length) throw Object.assign(new Error('Sessão não encontrada.'), { status: 404 }); const [a] = await conn.query(`SELECT id,status FROM assentos WHERE sessao_id=? AND id IN (${ids.map(() => '?').join(',')}) FOR UPDATE`, [sessaoId, ...ids]); if (a.length !== ids.length || a.some(x => x.status !== 'livre')) throw Object.assign(new Error('Um ou mais assentos não estão disponíveis.'), { status: 409 }); const [u] = await conn.query('SELECT id,nome,email FROM usuarios WHERE id=?', [usuarioId]); if (!u.length) throw Object.assign(new Error('Usuário não encontrado.'), { status: 401 }); const preco = this.price(s[0].preco_base, tipo, s[0].formato), ing = preco * ids.length, combo = Math.max(0, Number(comboQuantidade) || 0) * 24.9, total = Number((ing + combo).toFixed(2)); const [p] = await conn.query('INSERT INTO pedidos(usuario_id,sessao_id,shopping,tipo_ingresso,preco_ingresso,subtotal_ingressos,subtotal_combo,total,combo_nome,combo_quantidade,cliente_nome,cliente_email) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', [usuarioId, s[0].id, s[0].shopping, tipo, preco, ing, combo, total, combo ? 'Combo Pipoca + Refrigerante' : '', comboQuantidade, u[0].nome, u[0].email]); await conn.query(`INSERT INTO pedido_assentos(pedido_id,assento_id) VALUES ${ids.map(() => '(?,?)').join(',')}`, ids.flatMap(id => [p.insertId, id])); await conn.query(`UPDATE assentos SET status='ocupado' WHERE id IN (${ids.map(() => '?').join(',')})`, ids); await conn.commit(); await sendMail(u[0].email, 'Seu ingresso Cinemasso está confirmado', `<h2>Compra confirmada!</h2><p>Pedido #${p.insertId} — ${s[0].titulo}</p><p>${s[0].shopping} · ${new Date(s[0].data_sessao).toLocaleDateString('pt-BR')} às ${String(s[0].horario).slice(0, 5)}</p><p>Total: R$ ${total.toFixed(2).replace('.', ',')}</p>`); return { pedidoId: p.insertId, total, shopping: s[0].shopping, filme: s[0].titulo, assentos: ids } } catch (e) { await conn.rollback(); throw e } finally { conn.release() }
+  }
   async cancelar(usuarioId, id) { const conn = await pool.getConnection(); try { await conn.beginTransaction(); const [p] = await conn.query('SELECT * FROM pedidos WHERE id=? AND usuario_id=? FOR UPDATE', [id, usuarioId]); if (!p.length) throw Object.assign(new Error('Pedido não encontrado.'), { status: 404 }); if (p[0].status !== 'confirmado') throw Object.assign(new Error('Este pedido não pode mais ser cancelado.'), { status: 400 }); await conn.query('UPDATE pedidos SET status="cancelado",cancelado_em=NOW() WHERE id=?', [id]); await conn.query('UPDATE assentos a JOIN pedido_assentos pa ON pa.assento_id=a.id SET a.status="livre" WHERE pa.pedido_id=?', [id]); await conn.commit(); return { mensagem: 'Ingresso cancelado. Você pode solicitar o reembolso.' } } catch (e) { await conn.rollback(); throw e } finally { conn.release() } }
   async reembolso(usuarioId, id) { const [p] = await pool.query('SELECT * FROM pedidos WHERE id=? AND usuario_id=?', [id, usuarioId]); if (!p.length) throw Object.assign(new Error('Pedido não encontrado.'), { status: 404 }); if (!['cancelado', 'reembolso_solicitado'].includes(p[0].status)) throw Object.assign(new Error('Cancele o pedido antes de solicitar o reembolso.'), { status: 400 }); await pool.query('UPDATE pedidos SET status="reembolso_solicitado",reembolso_em=NOW() WHERE id=?', [id]); return { mensagem: 'Solicitação de reembolso registrada. O processamento financeiro deve ser feito pelo meio de pagamento utilizado.' } }
 }
