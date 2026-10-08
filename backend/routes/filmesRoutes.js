@@ -1,4 +1,4 @@
-const express = require('express'), { Cinema } = require('../infrastructure/cinemaInfrastructure'); const router = express.Router(), c = new Cinema();
+const express = require('express'), { Cinema } = require('../infrastructure/filmesInfrastructure'); const router = express.Router(), c = new Cinema();
 
 const auth = async (req, res, next) => {
   try {

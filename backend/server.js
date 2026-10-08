@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const express = require('express'), cors = require('cors'), { inicializarBanco, testarConexao } = require('./config/db'), routes = require('./routes/cinemaRoutes');
+const express = require('express'), cors = require('cors'), { inicializarBanco, testarConexao } = require('./config/db'), routes = require('./routes/filmesRoutes');
 
 const app = express(), PORT = Number(process.env.PORT || 3000); app.disable('x-powered-by'); app.use(cors({ origin: true })); app.use(express.json({ limit: '1mb' }));
 
